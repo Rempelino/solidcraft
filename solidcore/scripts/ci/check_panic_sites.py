@@ -10,7 +10,7 @@ rule (AUTO_PROVEN: a literal `windows(2)`, `clamp(-1.0, 1.0)`, divisor) proves i
 panic. A listed site that is gone is only reported: removing a site never fails a build, and
 the next `--update` drops its row.
 
-Sites come from one `cargo clippy --lib --message-format=json` run, so every receiver type
+Sites come from one `cargo clippy --lib --no-deps --message-format=json` run, so every receiver type
 is resolved: a `.remove(` on a `BTreeMap` (returns Option) is not a `Vec::remove`. The method
 calls are clippy's `disallowed_methods` with the paths in METHODS (in a temporary clippy.toml,
 so the normal clippy run is unaffected); `/` and `%` are `integer_division_remainder_used`,
@@ -43,9 +43,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 LIST = Path("plan/panic-sites.tsv")
-# solidcore and the STEP crates SolidCraft links. nurbs-grid-mesh is not here: nothing
-# depends on it, and docs/layers.md has it merged into solidcore-tess and then deleted.
-CRATES = ["solidcore", "step-import", "step-export"]
+# solidcore and the STEP crates SolidCraft links (solidcore-step: SolidCraft's STEP reader,
+# moved in by tangency-labs/solidcraft#13979). nurbs-grid-mesh is not here: nothing depends on
+# it, and docs/layers.md has it merged into solidcore-tess and then deleted.
+CRATES = ["solidcore", "step-import", "step-export", "solidcore-step"]
 COLUMNS = ["file", "fn", "pattern", "n", "status", "code", "reason"]
 
 # clippy `disallowed-methods` path -> pattern name. Only calls that can panic on their
@@ -414,7 +415,10 @@ def run_clippy(root):
             f"{conf}\ndisallowed-methods = [\n{paths},\n]\n"
             f"arithmetic-side-effects-allowed = [{allowed}]\n"
         )
-        cmd = ["cargo", "clippy", "--lib", "--message-format=json"]
+        # --no-deps: only CRATES' own code takes METHODS. A dependency outside CRATES linted with
+        # it (solidcore-record, under solidcore-step) would turn the list into errors under its
+        # own `deny(clippy::disallowed_methods)`, and its sites are not listed anyway.
+        cmd = ["cargo", "clippy", "--lib", "--no-deps", "--message-format=json"]
         for crate in CRATES:
             cmd += ["-p", crate]
         # a renamed or misspelt lint would otherwise pass with no sites at all
