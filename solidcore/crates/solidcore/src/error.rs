@@ -30,6 +30,7 @@
 //! | [`boolean::BooleanFailure`] | none: the Boolean operation's failures           |
 //! | [`nurbs::NurbsFailure`]     | `NL_*_ERR` numbers, in solidcore's terms         |
 //! | [`defeature::DefeatureFailure`] | none: why a defeature keeps a feature (#3218) |
+//! | [`curve::CurveFailure`]     | none: why a curve query refuses (#3184)           |
 //!
 //! NLib routines (`NL_*.cpp`) report failure by returning an error flag and storing an
 //! error number in the process-wide `NL_ERROR` record; solidcore returns
@@ -77,6 +78,7 @@
 //! difftest and the FFI), since nothing but the comparison needs them.
 
 pub mod boolean;
+pub mod curve;
 pub mod defeature;
 pub mod intersect;
 pub mod nurbs;
@@ -732,6 +734,8 @@ pub enum Reason {
     Intersect(intersect::IntersectFailure),
     /// A primitive, extrusion, revolution, skin or taper failed.
     Primitive(primitive::PrimitiveFailure),
+    /// A curve query refused (#3184).
+    Curve(curve::CurveFailure),
 }
 
 impl Reason {
@@ -743,7 +747,8 @@ impl Reason {
             | Self::Nurbs(_)
             | Self::Defeature(_)
             | Self::Intersect(_)
-            | Self::Primitive(_) => None,
+            | Self::Primitive(_)
+            | Self::Curve(_) => None,
             Self::Offset(o) => o.entity(),
             Self::Boolean(b) => b.entity(),
         }
@@ -760,6 +765,7 @@ impl Reason {
             Self::Defeature(d) => d.comparison_status(),
             Self::Intersect(i) => i.comparison_status(),
             Self::Primitive(p) => p.comparison_status(),
+            Self::Curve(c) => c.comparison_status(),
         }
     }
 
@@ -774,6 +780,7 @@ impl Reason {
             Self::Defeature(d) => d.kind(),
             Self::Intersect(i) => i.kind(),
             Self::Primitive(p) => p.kind(),
+            Self::Curve(c) => c.kind(),
         }
     }
 }
@@ -788,6 +795,7 @@ impl core::fmt::Display for Reason {
             Self::Defeature(d) => d.fmt(f),
             Self::Intersect(i) => i.fmt(f),
             Self::Primitive(p) => p.fmt(f),
+            Self::Curve(c) => c.fmt(f),
         }
     }
 }
@@ -825,6 +833,12 @@ impl From<primitive::PrimitiveFailure> for Reason {
 impl From<offset::OffsetFailure> for Reason {
     fn from(o: offset::OffsetFailure) -> Self {
         Self::Offset(o)
+    }
+}
+
+impl From<curve::CurveFailure> for Reason {
+    fn from(c: curve::CurveFailure) -> Self {
+        Self::Curve(c)
     }
 }
 
